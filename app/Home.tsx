@@ -3,14 +3,17 @@
 import MaxWidthWrapper from '@/components/MaxWidthWrapper';
 import Search from '@/components/Search';
 import { useRouter } from 'next/navigation';
+import { useSearch } from '@/components/SearchContext';
 
 const Homepage = () => {
 
   const router = useRouter();
+  const { trackName, setTrackName, artistName, setArtistName} = useSearch();
 
-  const handleSearch = (trackName:string, artistName:string, albumName:string) => {
-    router.push(`/videoListing?trackName=${trackName}&artistName=${artistName}&albumName=${albumName}`);
-    };
+  const handleSearch = () => {
+    router.push(`/videoListing?trackName=${trackName}&artistName=${artistName}`);
+  };
+
 
   return (
     <div>

@@ -5,9 +5,10 @@ import Video from "./Video"
 
 const VideoPage = ({ params }: { params: { videoId: string } }) => {
 
-    console.log(params.videoId)
+    
 
     const id = params.videoId
+    console.log(id)
 
     return(
         <div>

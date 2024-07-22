@@ -9,7 +9,7 @@ import Search from '@/components/Search';
 
 const VideoListing = () => {
   const [videos, setVideos] = useState<any[]>([]);
-  const { trackName, setTrackName, artistName, setArtistName, albumName, setAlbumName } = useSearch();
+  const { trackName, setTrackName, artistName, setArtistName } = useSearch();
   const [isParamsLoaded, setIsParamsLoaded] = useState(false); // To ensure params are loaded before fetching videos
   const router = useRouter();
 
@@ -17,21 +17,18 @@ const VideoListing = () => {
   useEffect(() => {
     const storedTrackName = localStorage.getItem('trackName');
     const storedArtistName = localStorage.getItem('artistName');
-    const storedAlbumName = localStorage.getItem('albumName');
 
     if (storedTrackName) setTrackName(storedTrackName);
     if (storedArtistName) setArtistName(storedArtistName);
-    if (storedAlbumName) setAlbumName(storedAlbumName);
 
     setIsParamsLoaded(true); // Indicate that parameters have been loaded
-  }, [setTrackName, setArtistName, setAlbumName]);
+  }, [setTrackName, setArtistName]);
 
   // Save search parameters to local storage when they change
   useEffect(() => {
     localStorage.setItem('trackName', trackName);
     localStorage.setItem('artistName', artistName);
-    localStorage.setItem('albumName', albumName);
-  }, [trackName, artistName, albumName]);
+  }, [trackName, artistName]);
 
   useEffect(() => {
     const fetchVideoResults = async () => {
@@ -45,15 +42,15 @@ const VideoListing = () => {
     if (isParamsLoaded) {
       fetchVideoResults();
     }
-  }, [router, trackName, artistName, albumName, isParamsLoaded]);
+  }, [router, trackName, artistName, isParamsLoaded]);
 
   const handleVideoSelect = async (video: any) => {
     const videoId = video.id.videoId;
-    router.push(`/video/${videoId}?trackName=${encodeURIComponent(trackName)}&artistName=${encodeURIComponent(artistName)}&albumName=${encodeURIComponent(albumName)}`);
+    router.push(`/video/${videoId}?trackName=${encodeURIComponent(trackName)}&artistName=${encodeURIComponent(artistName)}`);
   };
 
-  const handleSearch = (trackName: string, artistName: string, albumName: string) => {
-    router.push(`/videoListing?trackName=${trackName}&artistName=${artistName}&albumName=${albumName}`);
+  const handleSearch = () => {
+    router.push(`/videoListing?trackName=${trackName}&artistName=${artistName}`);
   };
 
   return (

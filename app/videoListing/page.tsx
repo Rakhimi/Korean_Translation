@@ -6,7 +6,6 @@ const VideoListingPage = () => {
 
     return (
         <div>
-        
         <VideoListing/>
         </div>
     )

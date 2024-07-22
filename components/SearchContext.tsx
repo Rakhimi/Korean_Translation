@@ -7,8 +7,6 @@ interface SearchContextProps {
   setTrackName: React.Dispatch<React.SetStateAction<string>>;
   artistName: string;
   setArtistName: React.Dispatch<React.SetStateAction<string>>;
-  albumName: string;
-  setAlbumName: React.Dispatch<React.SetStateAction<string>>;
 }
 
 const SearchContext = createContext<SearchContextProps | undefined>(undefined);
@@ -16,10 +14,9 @@ const SearchContext = createContext<SearchContextProps | undefined>(undefined);
 export const SearchProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [trackName, setTrackName] = useState<string>('');
   const [artistName, setArtistName] = useState<string>('');
-  const [albumName, setAlbumName] = useState<string>('');
 
   return (
-    <SearchContext.Provider value={{ trackName, setTrackName, artistName, setArtistName, albumName, setAlbumName }}>
+    <SearchContext.Provider value={{ trackName, setTrackName, artistName, setArtistName}}>
       {children}
     </SearchContext.Provider>
   );

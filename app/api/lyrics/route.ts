@@ -6,7 +6,6 @@ import { Translate } from '@google-cloud/translate/build/src/v2';
 import { google } from 'googleapis';
 
 interface LyricsLine {
-    timestamp: string;
     text: string;
 }
 
@@ -16,13 +15,12 @@ interface TranslatedWord {
 }
 
 interface TranslatedLyricsLine {
-    timestamp: string;
     text: string;
     translatedWords: TranslatedWord[];
     translatedText: string; // Added to store the translated line
 }
 
-
+const cheerio = require('cheerio');
 
 // Initialize Google Cloud Translation client
 const translate = new Translate({
@@ -43,21 +41,9 @@ const drive = google.drive({
     }),
 });
 
-const parseLRC = (lrcContent: string): LyricsLine[] => {
-    const lines = lrcContent.split('\n');
-    const lyrics: LyricsLine[] = [];
-    const timeRegex = /\[(\d{2}:\d{2}\.\d{2})\]/;
-
-    lines.forEach((line) => {
-        const match = line.match(timeRegex);
-        if (match) {
-            const timestamp = match[1];
-            const text = line.replace(timeRegex, '').trim();
-            lyrics.push({ timestamp, text });
-        }
-    });
-
-    return lyrics;
+const parseLyrics = (lyricsContent: string): LyricsLine[] => {
+    const lines = lyricsContent.split('\n').map(line => ({ text: line.trim() }));
+    return lines.filter(line => line.text.length > 0);
 };
 
 // Function to determine if a word is English
@@ -84,13 +70,12 @@ const translateLyrics = async (lyrics: LyricsLine[]): Promise<TranslatedLyricsLi
                     translatedWords.push({ original: word, translated: '[Translation Error]' });
                 }
             }
-        }
+        } 
 
         // Translate the whole line
         try {
             const [lineTranslation] = await translate.translate(line.text, { from: 'ko', to: 'en' });
             translatedLyrics.push({
-                timestamp: line.timestamp,
                 text: line.text,
                 translatedWords,
                 translatedText: lineTranslation, // Store the translated line
@@ -98,7 +83,6 @@ const translateLyrics = async (lyrics: LyricsLine[]): Promise<TranslatedLyricsLi
         } catch (error) {
             console.error(`Error translating line "${line.text}":`, error);
             translatedLyrics.push({
-                timestamp: line.timestamp,
                 text: line.text,
                 translatedText: '[Translation Error]', // Handle translation error for the line
                 translatedWords,
@@ -142,22 +126,77 @@ const fileExistsInDrive = async (fileName: string) => {
     } catch (error) {
         console.error('Error checking file existence:', error);
     }
-    return null;
+    return null; 
 };
+
+
+const fetchLyricsFromGenius = async (trackName: string, artistName: string) => {
+    const GENIUS_API_URL = 'https://api.genius.com';
+    const GENIUS_ACCESS_TOKEN = process.env.GENIUS_ACCESS_TOKEN;
+
+    // Search for the song
+    const searchResponse = await axios.get(`${GENIUS_API_URL}/search`, {
+        params: { q: `${trackName} ${artistName}` },
+        headers: { Authorization: `Bearer ${GENIUS_ACCESS_TOKEN}` }
+    });
+
+    const songId = searchResponse.data.response.hits[0]?.result?.id;
+
+    if (!songId) {
+        throw new Error('Song not found');
+    }
+
+    // Fetch song details
+    const songResponse = await axios.get(`${GENIUS_API_URL}/songs/${songId}`, {
+        headers: { Authorization: `Bearer ${GENIUS_ACCESS_TOKEN}` }
+    });
+
+    const lyricsPath = songResponse.data.response.song.path;
+
+    // Fetch lyrics using the song path
+    const lyricsPage = await axios.get(`https://genius.com${lyricsPath}`);
+
+    const lyrics = extractLyricsFromPage(lyricsPage.data); // You need to implement this function
+
+    return lyrics;
+};
+
+// Function to extract lyrics from the Genius lyrics page
+const extractLyricsFromPage = (html: string): string => {
+    const $ = cheerio.load(html);
+
+    // Select the lyrics container using the data-lyrics-container attribute
+    const lyricsElement = $('div[data-lyrics-container="true"]');
+
+    if (lyricsElement.length > 0) {
+        // Extract and clean up the text from the lyrics element
+        const lyrics = lyricsElement
+            .find('br')
+            .replaceWith('\n') // Replace <br> tags with newline characters
+            .end()
+            .text()
+            .trim();
+
+        // Optional: Remove extra spaces and unwanted characters
+        const cleanedLyrics = lyrics.replace(/\s{2,}/g, ' ').replace(/(\s*\n\s*)+/g, '\n');
+
+        return cleanedLyrics;
+    } else {
+        console.log('Lyrics not found');
+        return '';
+    }
+};
+
+
+
 
 export async function POST(request: Request) {
     const body = await request.json();
-    const { trackName, artistName, albumName, duration, title } = body;
+    const { trackName, artistName, title } = body;
 
     try {
 
         
-        const params = {
-            track_name: trackName,
-            artist_name: artistName,
-            album_name: albumName,
-            duration: duration.toString(),
-        };
 
         const fileName = `${artistName}_${trackName}.json`.replace(
             /[^a-zA-Z0-9]/g,
@@ -178,29 +217,22 @@ export async function POST(request: Request) {
             }
         }
 
-        console.log('Fetching lyrics with params:', params);
+        const lyrics = await fetchLyricsFromGenius(trackName, artistName);
+        
+        // Parse and translate lyrics
+        const parsedLyrics = parseLyrics(lyrics); // Adjust if `lyrics` format differs
+        const translatedLyrics = await translateLyrics(parsedLyrics);
 
-        const response = await axios.get('https://lrclib.net/api/get', {
-            params,
-        });
+        console.log(parsedLyrics)
 
-        console.log('Lyrics response:', response.data);
+        // Save translated lyrics to Google Drive
+        const content = JSON.stringify(translatedLyrics);
+        const newFileId = await uploadToGoogleDrive(fileName, content);
 
-        if (response.data && (response.data.plainLyrics || response.data.syncedLyrics)) {
-            // Parse and translate lyrics
-            const parsedLyrics = parseLRC(response.data.syncedLyrics);
-            const translatedLyrics = await translateLyrics(parsedLyrics);
-
-            // Save translated lyrics to Google Drive
-            const content = JSON.stringify(translatedLyrics);
-            const newFileId = await uploadToGoogleDrive(fileName, content);
-
-            return NextResponse.json(translatedLyrics);
-        } else {
-            throw new Error('No lyrics found');
-        }
+        return NextResponse.json(translatedLyrics);
     } catch (error: any) {
         console.error('Error processing request:', error.response ? error.response.data : error.message);
         return NextResponse.error();
     }
 }
+

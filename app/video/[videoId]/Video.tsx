@@ -1,15 +1,14 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { useSearch } from '@/components/SearchContext';
 import { fetchVideoDetails } from '@/utils/api';
-import { fetchMusicBrainzDetails } from '@/utils/musicbrainz';
 import VideoPlayer from '@/components/VideoPlayer';
 import Lyrics from '@/components/Lyrics';
 import MaxWidthWrapper from '@/components/MaxWidthWrapper';
 import Search from '@/components/Search';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { Circles } from 'react-loader-spinner';
 
 interface VideoProps {
@@ -19,57 +18,55 @@ interface VideoProps {
 const Video: React.FC<VideoProps> = ({ id }) => {
   const [translatedLyrics, setTranslatedLyrics] = useState([]);
   const [loading, setLoading] = useState(false);
-  const { trackName, setTrackName, artistName, setArtistName, albumName, setAlbumName } = useSearch();
+  const { trackName, setTrackName, artistName, setArtistName } = useSearch();
   const [lyricsAvailable, setLyricsAvailable] = useState(false);
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const initialLoad = useRef(true);
+  const hasFetched = useRef(false); // Add a ref to prevent multiple fetches
 
-  // Retrieve search parameters from local storage on initial load
+  console.log(id)
+
+  // Effect to load from local storage on initial load
   useEffect(() => {
-    const storedTrackName = localStorage.getItem('trackName');
-    const storedArtistName = localStorage.getItem('artistName');
-    const storedAlbumName = localStorage.getItem('albumName');
+    if (initialLoad.current) {
+      console.log('Initial load - retrieving from local storage');
+      const storedTrackName = localStorage.getItem('trackName');
+      const storedArtistName = localStorage.getItem('artistName');
 
-    if (storedTrackName) setTrackName(storedTrackName);
-    if (storedArtistName) setArtistName(storedArtistName);
-    if (storedAlbumName) setAlbumName(storedAlbumName);
-  }, [setTrackName, setArtistName, setAlbumName]);
+      if (storedTrackName) setTrackName(storedTrackName);
+      if (storedArtistName) setArtistName(storedArtistName);
 
-  // Save search parameters to local storage when they change
+      initialLoad.current = false;
+    }
+  }, [setTrackName, setArtistName]);
+
+  // Effect to save to local storage when trackName or artistName changes
   useEffect(() => {
-    localStorage.setItem('trackName', trackName);
-    localStorage.setItem('artistName', artistName);
-    localStorage.setItem('albumName', albumName);
-  }, [trackName, artistName, albumName]);
+    if (!initialLoad.current) {
+      console.log('Saving search parameters to local storage');
+      localStorage.setItem('trackName', trackName);
+      localStorage.setItem('artistName', artistName);
+    }
+  }, [trackName, artistName]);
 
   useEffect(() => {
     const fetchVideoAndLyrics = async () => {
-      if (!id || !trackName || !artistName) return;
+      if (!id || !trackName || !artistName || hasFetched.current) return;
 
       setLoading(true); // Set loading to true before starting the request
 
       try {
-        const { duration, title } = await fetchVideoDetails(id as string);
-        console.log(duration);
-
-        let finalAlbumName = albumName;
-
-        // If albumName is not provided, fetch from MusicBrainz
-        if (!albumName) {
-          const musicBrainzDetails = await fetchMusicBrainzDetails(trackName, artistName);
-          finalAlbumName = musicBrainzDetails?.albumName || 'Unknown Album';
-        }
+        const { title } = await fetchVideoDetails(id as string);
 
         const response = await axios.post('/api/lyrics', {
           trackName,
           artistName,
-          albumName: finalAlbumName,
-          duration,
           title,
         });
 
         setTranslatedLyrics(response.data);
         setLyricsAvailable(true);
+        hasFetched.current = true; // Prevent future fetches
       } catch (error) {
         setLyricsAvailable(false);
         console.error('Error fetching video and lyrics:', error);
@@ -79,10 +76,11 @@ const Video: React.FC<VideoProps> = ({ id }) => {
     };
 
     fetchVideoAndLyrics();
-  }, [id, trackName, artistName, albumName]);
+  }, [id, trackName, artistName]);
 
-  const handleSearch = (trackName: string, artistName: string, albumName: string) => {
-    router.push(`/videoListing?trackName=${trackName}&artistName=${artistName}&albumName=${albumName}`);
+  const handleSearch = () => {
+    console.log('Handle search - navigating to video listing');
+    router.push(`/videoListing?trackName=${trackName}&artistName=${artistName}`);
   };
 
   return (
@@ -109,7 +107,7 @@ const Video: React.FC<VideoProps> = ({ id }) => {
               {lyricsAvailable ? (
                 <Lyrics translatedLyrics={translatedLyrics} />
               ) : (
-                <p className='font-bold text-lg'>No lyrics available for this video, try entering the album name and clicking again or clicking on a different video</p>
+                <p className='font-bold text-lg'>No lyrics available for this video</p>
               )}
             </div>
           </div>
