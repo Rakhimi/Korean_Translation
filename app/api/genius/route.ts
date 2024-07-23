@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 const cheerio = require('cheerio');
 
 
-export const extractLyricsFromPage = (html: string): string => {
+const extractLyricsFromPage = (html: string): string => {
     const $ = cheerio.load(html);
 
     // Select the lyrics container using the data-lyrics-container attribute
@@ -28,7 +28,7 @@ export const extractLyricsFromPage = (html: string): string => {
     }
 };
 
-export const fetchLyricsFromGenius = async (trackName: string, artistName: string) => {
+const fetchLyricsFromGenius = async (trackName: string, artistName: string) => {
     const GENIUS_API_URL = 'https://api.genius.com';
     const GENIUS_ACCESS_TOKEN = process.env.GENIUS_ACCESS_TOKEN;
 
