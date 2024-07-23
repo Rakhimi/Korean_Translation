@@ -14,27 +14,8 @@ const drive = google.drive({
     }),
 });
 
-
-
-export const uploadToGoogleDrive = async (fileName: string, content: string) => {
-    const fileMetadata = {
-        name: fileName,
-        parents: ['1uetHeh5mM-lLCQrsM5C1GBD8iDhREi-Z'], // Replace with your folder ID if needed
-    };
-    const media = {
-        mimeType: 'application/json',
-        body: content,
-    };
-    const response = await drive.files.create({
-        requestBody: fileMetadata,
-        media: media,
-        fields: 'id',
-    });
-    return response.data.id;
-};
-
 // Function to check if file exists in Google Drive
-export const fileExistsInDrive = async (fileName: string) => {
+const fileExistsInDrive = async (fileName: string) => {
     try {
         const existingFiles = await drive.files.list({
             q: `name='${fileName}' and trashed=false`,
