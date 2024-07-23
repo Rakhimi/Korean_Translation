@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from './ui/button';
 
 interface SearchProps {
-  handleSearch: () => void;
+  handleSearch: (trackName:string, artistName:string) => void;
 }
 
 const Search: React.FC<SearchProps> = ({ handleSearch }) => {
@@ -38,7 +38,7 @@ const Search: React.FC<SearchProps> = ({ handleSearch }) => {
     if (!hasErrors) {
       setTrackName(newTrackName!);
       setArtistName(newArtistName!);
-      handleSearch();
+      handleSearch(newTrackName!,newArtistName!);
     }
   };
 

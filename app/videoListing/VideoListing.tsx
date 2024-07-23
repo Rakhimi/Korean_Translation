@@ -49,7 +49,7 @@ const VideoListing = () => {
     router.push(`/video/${videoId}?trackName=${encodeURIComponent(trackName)}&artistName=${encodeURIComponent(artistName)}`);
   };
 
-  const handleSearch = () => {
+  const handleSearch = (trackName: string, artistName: string) => {
     router.push(`/videoListing?trackName=${trackName}&artistName=${artistName}`);
   };
 

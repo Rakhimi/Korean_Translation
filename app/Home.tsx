@@ -10,7 +10,7 @@ const Homepage = () => {
   const router = useRouter();
   const { trackName, setTrackName, artistName, setArtistName} = useSearch();
 
-  const handleSearch = () => {
+  const handleSearch = (trackName: string, artistName: string) => {
     router.push(`/videoListing?trackName=${trackName}&artistName=${artistName}`);
   };
 

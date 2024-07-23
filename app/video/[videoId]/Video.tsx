@@ -3,7 +3,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { useSearch } from '@/components/SearchContext';
-import { fetchVideoDetails } from '@/utils/api';
+import { fetchVideoDetails, parseLyrics } from '@/utils/api';
+import { fetchLyricsFromGenius } from '@/utils/genius';
 import VideoPlayer from '@/components/VideoPlayer';
 import Lyrics from '@/components/Lyrics';
 import MaxWidthWrapper from '@/components/MaxWidthWrapper';
@@ -42,31 +43,56 @@ const Video: React.FC<VideoProps> = ({ id }) => {
 
   // Effect to save to local storage when trackName or artistName changes
   useEffect(() => {
-    if (!initialLoad.current) {
-      console.log('Saving search parameters to local storage');
-      localStorage.setItem('trackName', trackName);
-      localStorage.setItem('artistName', artistName);
-    }
-  }, [trackName, artistName]);
-
-  useEffect(() => {
     const fetchVideoAndLyrics = async () => {
       if (!id || !trackName || !artistName || hasFetched.current) return;
-
+  
       setLoading(true); // Set loading to true before starting the request
-
+  
       try {
         const { title } = await fetchVideoDetails(id as string);
-
-        const response = await axios.post('/api/lyrics', {
+  
+        const fileName = `${artistName}_${trackName}.json`.replace(
+          /[^a-zA-Z0-9]/g,
+          '_'
+        );
+  
+        console.log('Checking if file exists in Google Drive:', fileName);
+  
+        // Check if the file exists in Google Drive
+        const driveResponse = await axios.post('/api/drive', {
           trackName,
           artistName,
           title,
+          fileName
         });
-
-        setTranslatedLyrics(response.data);
-        setLyricsAvailable(true);
-        hasFetched.current = true; // Prevent future fetches
+  
+        console.log(driveResponse);
+  
+        if (driveResponse.data.exists) {
+          setTranslatedLyrics(driveResponse.data.fileContent);
+          setLyricsAvailable(true);
+          hasFetched.current = true;
+        } else {
+          // Fetch lyrics from Genius
+          const lyrics = await axios.post('/api/genius', {
+            trackName,
+            artistName
+          });
+          
+          // Parse the lyrics
+          const parsedLyrics = parseLyrics(lyrics.data);
+          
+          console.log(parsedLyrics);
+          // Save the parsed lyrics to Google Drive
+          const response = await axios.post('/api/lyrics', {
+            fileName,
+            parsedLyrics
+          });
+  
+          setTranslatedLyrics(response.data);
+          setLyricsAvailable(true);
+          hasFetched.current = true;
+        }
       } catch (error) {
         setLyricsAvailable(false);
         console.error('Error fetching video and lyrics:', error);
@@ -74,11 +100,14 @@ const Video: React.FC<VideoProps> = ({ id }) => {
         setLoading(false); // Set loading to false after the request is finished
       }
     };
-
+  
     fetchVideoAndLyrics();
   }, [id, trackName, artistName]);
+  
+  
+  
 
-  const handleSearch = () => {
+  const handleSearch = (trackName: string, artistName: string) => {
     console.log('Handle search - navigating to video listing');
     router.push(`/videoListing?trackName=${trackName}&artistName=${artistName}`);
   };
