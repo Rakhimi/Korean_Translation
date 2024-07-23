@@ -36,10 +36,10 @@ const drive = google.drive({
         scopes: ['https://www.googleapis.com/auth/drive.file'],
     }),
 });
-// Function to determine if a word is English
-const isEnglish = (word: string): boolean => /^[a-zA-Z]+$/.test(word);
 
 // Function to translate lyrics line by line and word by word
+const BATCH_SIZE = 100; // Adjust the batch size based on your needs and API limits
+
 const translateLyrics = async (lyrics: LyricsLine[]): Promise<TranslatedLyricsLine[]> => {
     const translatedLyrics: TranslatedLyricsLine[] = [];
 
@@ -47,20 +47,30 @@ const translateLyrics = async (lyrics: LyricsLine[]): Promise<TranslatedLyricsLi
         const words = line.text.split(' ');
         const translatedWords: TranslatedWord[] = [];
 
-        // Translate each word
-        for (const word of words) {
-            if (isEnglish(word)) {
-                translatedWords.push({ original: word, translated: word });
-            } else {
-                try {
-                    const [translation] = await translate.translate(word, { from: 'ko', to: 'en' });
-                    translatedWords.push({ original: word, translated: translation });
-                } catch (error) {
-                    console.error(`Error translating word "${word}":`, error);
-                    translatedWords.push({ original: word, translated: '[Translation Error]' });
-                }
+        // Function to batch translate words
+        const batchTranslate = async (batch: string[]) => {
+            try {
+                const [translations] = await translate.translate(batch, { from: 'ko', to: 'en' });
+                return translations;
+            } catch (error) {
+                console.error('Error translating batch:', error);
+                return batch.map(word => '[Translation Error]'); // Return error placeholder for each word
             }
-        } 
+        };
+
+        // Translate each batch of words
+        for (let i = 0; i < words.length; i += BATCH_SIZE) {
+            const batch = words.slice(i, i + BATCH_SIZE);
+            const translations = await batchTranslate(batch);
+
+            // Map translations back to the original words
+            batch.forEach((word, index) => {
+                translatedWords.push({
+                    original: word,
+                    translated: translations[index] || '[Translation Error]',
+                });
+            });
+        }
 
         // Translate the whole line
         try {
@@ -82,6 +92,7 @@ const translateLyrics = async (lyrics: LyricsLine[]): Promise<TranslatedLyricsLi
 
     return translatedLyrics;
 };
+
 // Function to upload file to Google Drive
 const uploadToGoogleDrive = async (fileName: string, content: string) => {
     const fileMetadata = {
