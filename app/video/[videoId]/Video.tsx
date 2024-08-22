@@ -41,6 +41,11 @@ const Video: React.FC<VideoProps> = ({ id }) => {
   }, [setTrackName, setArtistName]);
 
   useEffect(() => {
+    localStorage.setItem('trackName', trackName);
+    localStorage.setItem('artistName', artistName);
+  }, [trackName, artistName]);
+
+  useEffect(() => {
     const fetchVideoAndLyrics = async () => {
       if (!id || !trackName || !artistName || hasFetched.current) return;
   
