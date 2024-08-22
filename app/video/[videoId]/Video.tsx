@@ -3,8 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { useSearch } from '@/components/SearchContext';
-import { fetchVideoDetails, parseLyrics } from '@/utils/api';
-import { fetchLyricsFromGenius } from '@/utils/genius';
+import { fetchVideoDetails } from '@/utils/api';
 import VideoPlayer from '@/components/VideoPlayer';
 import Lyrics from '@/components/Lyrics';
 import MaxWidthWrapper from '@/components/MaxWidthWrapper';
@@ -41,12 +40,11 @@ const Video: React.FC<VideoProps> = ({ id }) => {
     }
   }, [setTrackName, setArtistName]);
 
-  // Effect to save to local storage when trackName or artistName changes
   useEffect(() => {
     const fetchVideoAndLyrics = async () => {
       if (!id || !trackName || !artistName || hasFetched.current) return;
   
-      setLoading(true); // Set loading to true before starting the request
+      setLoading(true);
   
       try {
         const { title } = await fetchVideoDetails(id as string);
@@ -66,43 +64,27 @@ const Video: React.FC<VideoProps> = ({ id }) => {
           fileName
         });
   
-        console.log(driveResponse);
-  
         if (driveResponse.data.exists) {
           setTranslatedLyrics(driveResponse.data.fileContent);
           setLyricsAvailable(true);
-          hasFetched.current = true;
         } else {
-          // Fetch lyrics from Genius
-          const lyrics = await axios.post('/api/genius', {
-            trackName,
-            artistName
-          });
-          
-          // Parse the lyrics
-          const parsedLyrics = parseLyrics(lyrics.data);
-          
-          console.log(parsedLyrics);
-          // Save the parsed lyrics to Google Drive
-          const response = await axios.post('/api/lyrics', {
-            fileName,
-            parsedLyrics
-          });
-  
-          setTranslatedLyrics(response.data);
-          setLyricsAvailable(true);
-          hasFetched.current = true;
+          setLyricsAvailable(false);
+          console.log('File does not exist in Google Drive.');
         }
+        
+        hasFetched.current = true;
+  
       } catch (error) {
         setLyricsAvailable(false);
         console.error('Error fetching video and lyrics:', error);
       } finally {
-        setLoading(false); // Set loading to false after the request is finished
+        setLoading(false);
       }
     };
   
     fetchVideoAndLyrics();
   }, [id, trackName, artistName]);
+  
   
   
   

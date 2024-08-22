@@ -1,10 +1,5 @@
 import axios from 'axios';
 
-
-interface LyricsLine {
-  text: string;
-}
-
 const apiKey = process.env.NEXT_PUBLIC_YOUTUBE_API_KEY;
 // Fetch videos based on the query
 export const fetchVideos = async (query: string) => {
@@ -34,13 +29,6 @@ export const fetchVideoDetails = async (videoId: string) => {
 
   return { title };
 };
-
-
-export const parseLyrics = (lyricsContent: string): LyricsLine[] => {
-  const lines = lyricsContent.split('\n').map(line => ({ text: line.trim() }));
-  return lines.filter(line => line.text.length > 0);
-};
-
 
 
 
